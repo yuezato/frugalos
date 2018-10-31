@@ -394,9 +394,12 @@ impl Service {
     }
     #[cfg_attr(feature = "cargo-clippy", allow(ptr_arg))]
     fn handle_delete_bucket(&mut self, proposal_id: ProposalId, id: &BucketId) {
+        info!(self.logger, "Try to delete the bucket (id = {:?})", id);
         let deleted = if let Some(bucket) = self.buckets.remove(id) {
             info!(self.logger, "Bucket is deleted: {}", dump!(id, bucket));
             self.delete_segment_table(&bucket);
+            // 次で登録するDeleteBucketにより
+            // 最終的にはfrugalos/src/service.rsのhandle_delete_bucketが呼び出される。
             self.events.push_back(Event::DeleteBucket(bucket.clone()));
             Some(bucket)
         } else {

@@ -30,6 +30,7 @@ use bucket::Bucket;
 use client::FrugalosClient;
 use {Error, ErrorKind, Result};
 
+#[derive(Debug)]
 pub struct PhysicalDevice {
     id: DeviceId,
     server: ServerId,
@@ -113,6 +114,10 @@ where
                     .server()
                     .map_or(false, |s| *s == self.local_server.id)
                 {
+                    // device.serverはいまPUTされんとしているdeviceの紐づけたいserverで
+                    // local_serverはこのfrugalosプロセスに紐付いているサーバである。
+                    // 従って、次のspawn_deviceが実行されるのは
+                    // 新たにPUTしたいdeviceを紐づけたいfrugalosプロセスのみである。
                     track!(self.spawn_device(&device))?;
                 }
             }
@@ -125,8 +130,7 @@ where
                 track!(self.handle_put_bucket(&bucket))?;
             }
             ConfigEvent::DeleteBucket(bucket) => {
-                // TODO
-                track_panic!(ErrorKind::Other, "Unimplemented: {:?}", bucket);
+                track!(self.handle_delete_bucket(&bucket));
             }
             ConfigEvent::PatchSegment {
                 bucket_no,
@@ -155,10 +159,70 @@ where
             self.rpc_service.clone(),
             &bucket_config,
         );
+
         let mut buckets = (&*self.buckets.load()).clone();
         buckets.insert(id, bucket);
         self.buckets.store(buckets);
         Ok(())
+    }
+    fn handle_delete_bucket(&mut self, bucket_config: &BucketConfig) -> Result<()> {
+        use cannyls::lump::LumpId;
+
+        let id = bucket_config.id().clone(); // 削除するバケツのバケツ名
+        let bucket_seqno = bucket_config.seqno(); // 削除するバケツのseqno
+
+        // bucket_no_to_idテーブルからseqnoを外す
+        self.bucket_no_to_id.remove(&bucket_seqno);
+
+        // バケツテーブルからidを外す
+        let mut buckets = (&*self.buckets.load()).clone();
+        buckets.remove(&id);
+        self.buckets.store(buckets);
+
+        match bucket_config {
+            BucketConfig::Metadata(ref _bucket) => {
+                panic!("[metadata bucket] unimplemented");
+            }
+            BucketConfig::Replicated(ref _bucket) => {
+                panic!("[replicated bucket] unimplemented");
+            }
+            BucketConfig::Dispersed(ref _bucket) => {
+                let mut deleting_futures = Vec::new();
+
+                // local_devices の中には virtual な device は出現しない
+                // これは `handle_config_event` の
+                // `PutDevice`-caseにおいて、`self.spawn_device`を呼び出すthen節に
+                // virtual deviceの場合には到達しないから。
+                // 当該のif文では、デバイスのserver値を読もうとするが
+                // virtual deviceにはserver値が無い(None)であるため。
+                for elem in self.local_devices.iter() {
+                    let local_device = elem.1;
+
+                    if let Some(ref device_handle) = local_device.handle() {
+                        // Frugalos's lumpid space is the following
+                        // 00000000(8bit)_[bucket_no(24bit)]_[segment_no(16bit)]_[mem_no(8bit)]_etc[72bit]
+                        let target_start: u128 = u128::from(bucket_seqno) << (16 + 8 + 72);
+                        let target_end: u128 = u128::from(bucket_seqno + 1) << (16 + 8 + 72);
+
+                        let mut f = device_handle.request().delete_range(std::ops::Range {
+                            start: LumpId::new(target_start),
+                            end: LumpId::new(target_end),
+                        });
+                        deleting_futures.push(f);
+                    } else {
+                        // handle()がNoneを返す時には
+                        // このバケツ経由ではこのデータを書き込んでいない筈であるから
+                        // 何もすることはない
+                    }
+                }
+
+                for mut f in deleting_futures {
+                    while !(f.poll())?.is_ready() {}
+                }
+
+                Ok(())
+            }
+        }
     }
     fn handle_patch_segment(
         &mut self,
@@ -299,6 +363,9 @@ impl LocalDevice {
     fn id(&self) -> DeviceId {
         DeviceId::new(self.config.id().clone())
     }
+    fn handle(&self) -> Option<DeviceHandle> {
+        self.handle.clone()
+    }
     fn watch(&mut self) -> WatchDeviceHandle {
         if let Some(ref d) = self.handle {
             WatchDeviceHandle::Ok(d.clone())
@@ -381,8 +448,12 @@ fn spawn_file_device(device: &FileDeviceConfig) -> fibers_tasque::AsyncCall<Resu
     let mut storage = cannyls::storage::StorageBuilder::new();
     storage.metrics(metrics.clone());
     fibers_tasque::DefaultIoTaskQueue.async_call(move || {
-        let (nvm, created) =
-            track!(FileNvmBuilder::new().exclusive_lock(false).create_if_absent(filepath, capacity).map_err(Error::from))?;
+        let (nvm, created) = track!(
+            FileNvmBuilder::new()
+                .exclusive_lock(false)
+                .create_if_absent(filepath, capacity)
+                .map_err(Error::from)
+        )?;
         let storage = if created {
             track!(storage.create(nvm).map_err(Error::from))?
         } else {
