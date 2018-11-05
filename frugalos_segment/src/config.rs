@@ -11,7 +11,7 @@ use std::hash::{Hash, Hasher};
 pub(crate) const LUMP_NAMESPACE_CONTENT: u8 = 1;
 
 /// Raftクラスタ(i.e., セグメント)内のメンバ情報。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Deserialize)]
 pub struct ClusterMember {
     /// ノードID。
     pub node: NodeId,
@@ -64,6 +64,8 @@ pub struct ClusterConfig {
 }
 impl ClusterConfig {
     /// オブジェクトデータの取得先候補を優先順位が高い順に返す。
+    ///
+    /// - 優先順位とはどういう順序に基づいているのか？
     pub fn candidates(&self, version: ObjectVersion) -> impl Iterator<Item = &ClusterMember> {
         let mut hasher = SipHasher::new();
         version.0.hash(&mut hasher);

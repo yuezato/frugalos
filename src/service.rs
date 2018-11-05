@@ -167,6 +167,8 @@ where
     }
     fn handle_delete_bucket(&mut self, bucket_config: &BucketConfig) -> Result<()> {
         use cannyls::lump::LumpId;
+        use frugalos_raft::{LocalNodeId, NodeId};
+        use frugalos_segment::config::ClusterMember;
 
         let id = bucket_config.id().clone(); // 削除するバケツのバケツ名
         let bucket_seqno = bucket_config.seqno(); // 削除するバケツのseqno
@@ -176,6 +178,7 @@ where
 
         // バケツテーブルからidを外す
         let mut buckets = (&*self.buckets.load()).clone();
+        let bucket: Bucket = buckets[&id].clone();
         buckets.remove(&id);
         self.buckets.store(buckets);
 
@@ -187,37 +190,75 @@ where
                 panic!("[replicated bucket] unimplemented");
             }
             BucketConfig::Dispersed(ref _bucket) => {
-                let mut deleting_futures = Vec::new();
+                use frugalos_segment::Client;
 
-                // local_devices の中には virtual な device は出現しない
-                // これは `handle_config_event` の
-                // `PutDevice`-caseにおいて、`self.spawn_device`を呼び出すthen節に
-                // virtual deviceの場合には到達しないから。
-                // 当該のif文では、デバイスのserver値を読もうとするが
-                // virtual deviceにはserver値が無い(None)であるため。
-                for elem in self.local_devices.iter() {
-                    let local_device = elem.1;
+                // セグメントに相当するプロセスを全て終了させる。
+                // まず、Raftノードを停止させる。
+                {
+                    // 1. バケツの配下にあるセグメントを全て求める
+                    let segments: &[Client] = bucket.segments();
+                    println!("segments.len = {}", segments.len());
 
-                    if let Some(ref device_handle) = local_device.handle() {
-                        // Frugalos's lumpid space is the following
-                        // 00000000(8bit)_[bucket_no(24bit)]_[segment_no(16bit)]_[mem_no(8bit)]_etc[72bit]
-                        let target_start: u128 = u128::from(bucket_seqno) << (16 + 8 + 72);
-                        let target_end: u128 = u128::from(bucket_seqno + 1) << (16 + 8 + 72);
+                    // 2. 各セグメントに対して停止要求を流す
+                    for i in 0..segments.len() {
+                        let segment: &Client = &segments[i];
+                        let members: &[ClusterMember] = segment.raft_segment_members().unwrap();
+                        {
+                            // raft_segment_membersはStorageClientから取得し
+                            // raft_segment_members2はMdsClientから取得した
+                            // Clientらで、二つが同じかどうかをなんとなく確かめている。
+                            let members2: &[ClusterMember] = &segment.raft_segment_members2();
+                            assert_eq!(members, members2);
+                        }
+                        // ClusterMemberからNodeIdへの変換を行う。
+                        let node_ids: Vec<NodeId> =
+                            members.to_vec().iter().map(|mem| mem.node).collect();
 
-                        let mut f = device_handle.request().delete_range(std::ops::Range {
-                            start: LumpId::new(target_start),
-                            end: LumpId::new(target_end),
-                        });
-                        deleting_futures.push(f);
-                    } else {
-                        // handle()がNoneを返す時には
-                        // このバケツ経由ではこのデータを書き込んでいない筈であるから
-                        // 何もすることはない
+                        for n in node_ids {
+                            // ここから既存のscope設定を守ろうとするとどうすればよいのか分からない.
+                            // 例えば次はだめ:
+                            // self.raft_service.handle().remove_node(n);
+                            //
+                            // 次はコンパイルは通るが、frugalos_segment::serviceの中で手詰まり
+                            // self.frugalos_segment_service.handle().remove_node(n);
+                        }
                     }
                 }
 
-                for mut f in deleting_futures {
-                    while !(f.poll())?.is_ready() {}
+                // 以下ではcannylsに入っているデータを消していく
+                {
+                    let mut deleting_futures = Vec::new();
+
+                    // local_devices の中には virtual な device は出現しない
+                    // これは `handle_config_event` の
+                    // `PutDevice`-caseにおいて、`self.spawn_device`を呼び出すthen節に
+                    // virtual deviceの場合には到達しないから。
+                    // 当該のif文では、デバイスのserver値を読もうとするが
+                    // virtual deviceにはserver値が無い(None)であるため。
+                    for elem in self.local_devices.iter() {
+                        let local_device = elem.1;
+
+                        if let Some(ref device_handle) = local_device.handle() {
+                            // Frugalos's lumpid space is the following
+                            // 00000000(8bit)_[bucket_no(24bit)]_[segment_no(16bit)]_[mem_no(8bit)]_etc[72bit]
+                            let target_start: u128 = u128::from(bucket_seqno) << (16 + 8 + 72);
+                            let target_end: u128 = u128::from(bucket_seqno + 1) << (16 + 8 + 72);
+
+                            let mut f = device_handle.request().delete_range(std::ops::Range {
+                                start: LumpId::new(target_start),
+                                end: LumpId::new(target_end),
+                            });
+                            deleting_futures.push(f);
+                        } else {
+                            // handle()がNoneを返す時には
+                            // このバケツ経由ではこのデータを書き込んでいない筈であるから
+                            // 何もすることはない
+                        }
+                    }
+
+                    for mut f in deleting_futures {
+                        while !(f.poll())?.is_ready() {}
+                    }
                 }
 
                 Ok(())
