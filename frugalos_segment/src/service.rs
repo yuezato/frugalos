@@ -126,12 +126,13 @@ where
                 self.spawner.spawn(future);
             }
             Command::RemoveNode(node_id) => {
-                panic!("[frugalos_segment::service::RemoveNode] unimplemented");
-                // 削除らしいことをしたいが、何も使えない
-                // 次はprivateなので使えない
-                // self.raft_service.remove_node(node_id.local_id);
-                // 次も同じく
-                // self.mds_service.handle().remove_node(node_id);
+                if let Some(node_handle) = self.mds_service.get_node(&node_id) {
+                    // frugalos_mds::Nodeの停止
+                    // これにより波及的に何が停止されるかは要確認
+                    node_handle.stop();
+
+                    self.mds_service.handle().remove_node(node_id);
+                }
             }
         }
     }

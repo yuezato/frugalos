@@ -215,12 +215,7 @@ where
                             members.to_vec().iter().map(|mem| mem.node).collect();
 
                         for n in node_ids {
-                            // ここから既存のscope設定を守ろうとするとどうすればよいのか分からない.
-                            // 例えば次はだめ:
-                            // self.raft_service.handle().remove_node(n);
-                            //
-                            // 次はコンパイルは通るが、frugalos_segment::serviceの中で手詰まり
-                            // self.frugalos_segment_service.handle().remove_node(n);
+                            self.frugalos_segment_service.handle().remove_node(n);
                         }
                     }
                 }
