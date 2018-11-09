@@ -19,6 +19,7 @@ use synchronizer::Synchronizer;
 use {Client, Error, ErrorKind, Result};
 
 /// セグメント群を管理するためのサービス。
+/// セグメントを識別し、特定のセグメントに何かをさせたい場合はどうするのか？
 pub struct Service<S> {
     logger: Logger,
     spawner: S,
@@ -124,6 +125,15 @@ where
                     .and_then(|node| node);
                 self.spawner.spawn(future);
             }
+            Command::RemoveNode(node_id) => {
+                if let Some(node_handle) = self.mds_service.get_node(&node_id) {
+                    // frugalos_mds::Nodeの停止
+                    // これにより波及的に何が停止されるかは要確認
+                    node_handle.stop();
+
+                    self.mds_service.handle().remove_node(node_id);
+                }
+            }
         }
     }
 }
@@ -181,12 +191,24 @@ impl ServiceHandle {
         )?;
         Ok(())
     }
+
+    pub fn remove_node(&self, node_id: NodeId) -> Result<()> {
+        let command = Command::RemoveNode(node_id);
+
+        track!(
+            self.command_tx
+                .send(command)
+                .map_err(|_| ErrorKind::Other.error())
+        )?;
+        Ok(())
+    }
 }
 
 pub type CreateDeviceHandle = Box<Future<Item = DeviceHandle, Error = Error> + Send + 'static>;
 
 pub enum Command {
     AddNode(NodeId, CreateDeviceHandle, StorageClient, ClusterMembers),
+    RemoveNode(NodeId),
 }
 
 struct SegmentNode {

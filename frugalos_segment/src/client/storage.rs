@@ -310,6 +310,11 @@ pub fn build_ec(data_fragments: usize, parity_fragments: usize) -> ErasureCoder 
     ErasureCoderPool::new(builder)
 }
 
+/// この構造体のインスタンスは、１つの`frugalos_segment::client::Client`に属する。
+/// 主なメンバに次がある
+/// - `cluster`: 自分の属する`Client`インスタンスの紐付いているセグメントの構成情報
+/// - `config`: ErasureCodingを行うための設定
+/// - `rpc_service`: *何か*に対してRPCするためのメンバ
 #[derive(Clone)]
 pub struct DispersedClient {
     logger: Logger,
@@ -339,7 +344,19 @@ impl DispersedClient {
             rpc_service,
         }
     }
+    /// この`DispersedClient`インスタンスを持つ
+    /// `frugalos_segment::client::Client`インスタンスの紐付いているセグメントの
+    /// Raftノード全体を返す。
+    pub fn raft_segment_members(&self) -> &[ClusterMember] {
+        &self.cluster.members
+    }
+
+    /// 何をする関数で、二つの引数にはどんな意味がある？:
+    /// - `local_node`: 何らかのRaftノードを意味すると思うが、localとは？
+    /// 自分の属するClientに紐付いたセグメント中のRaftノードということか？
+    /// - `version`: 対象のObjectVersion
     pub fn get_fragment(self, local_node: NodeId, version: ObjectVersion) -> GetDispersedFragment {
+        // 自分以外のClusterメンバたち
         let mut spares = self
             .cluster
             .candidates(version)
@@ -354,11 +371,19 @@ impl DispersedClient {
         //     .filter(|m| m.node != local_node)
         //     .cloned()
         //     .collect::<Vec<_>>();
+
+        // get_fragment(node_id, version) の組み合わせは
+        // Raftノードをnode_id（Rと呼ぶ）とするRaftノード中に何らかの理由でversionの情報がなかった場合である。
+        // 次のmissing_indexは、Rの属するセグメント中でのindexを表すものである。
+        // 具体的には、 node_id = self.cluster.candidates(version)[missing_index]という雰囲気のはず。
+        // self.clusterにおけるindexではなく、candidatesを取った後のindexであることに注意する。
         let missing_index = self
             .cluster
-            .candidates(version)
-            .position(|m| m.node == local_node)
+            .candidates(version) // clusterをある種の優先順位に基づいてイテレータ化する
+            .position(|m| m.node == local_node) // 優先順位の高いうちから、local_nodeと一致するもののindexを取得する。
             .expect("TOOD");
+        // cndidatesで並べ替えている意味はあるのか？
+
         debug!(
             self.logger,
             "get_fragment: version={:?}, index={}, spares={:?}", version, missing_index, spares

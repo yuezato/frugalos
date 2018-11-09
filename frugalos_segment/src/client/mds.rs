@@ -25,7 +25,7 @@ use {Error, ErrorKind, ObjectValue, Result};
 pub struct MdsClient {
     logger: Logger,
     rpc_service: RpcServiceHandle,
-    inner: Arc<Mutex<Inner>>,
+    pub inner: Arc<Mutex<Inner>>,
 }
 impl MdsClient {
     pub fn new(logger: Logger, rpc_service: RpcServiceHandle, config: ClusterConfig) -> Self {
@@ -226,7 +226,7 @@ impl MdsClient {
 
 #[derive(Debug)]
 pub struct Inner {
-    config: ClusterConfig,
+    pub config: ClusterConfig,
     leader: Option<NodeId>,
 }
 impl Inner {

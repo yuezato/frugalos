@@ -27,6 +27,13 @@ pub struct Service {
     do_stop: bool,
 }
 impl Service {
+    pub fn get_node(&self, node: &NodeId) -> Option<NodeHandle> {
+        // ここでのNodeId -> LocalNodeIdへの変換は問題ないか？
+        let local_node: LocalNodeId = node.local_id;
+
+        self.nodes.load().get(&local_node).map(|n| n.clone())
+    }
+
     /// 新しい`Service`インスタンスを生成する.
     pub fn new(logger: Logger, rpc: &mut RpcServerBuilder) -> Result<Self> {
         let nodes = Arc::new(AtomicImmut::new(HashMap::new()));
@@ -141,7 +148,7 @@ impl ServiceHandle {
         )?;
         Ok(())
     }
-    pub(crate) fn remove_node(&self, id: NodeId) -> Result<()> {
+    pub fn remove_node(&self, id: NodeId) -> Result<()> {
         let command = Command::RemoveNode(id.local_id);
         track!(
             self.command_tx.send(command).map_err(Error::from),

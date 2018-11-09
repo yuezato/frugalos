@@ -13,19 +13,42 @@ use std::ops::Range;
 
 use self::mds::MdsClient;
 use self::storage::{ErasureCoder, StorageClient};
-use config::ClientConfig;
+use config::{ClientConfig, ClusterMember};
 use {Error, ObjectValue};
 
 mod mds;
 pub mod storage; // TODO: private
 
-/// セグメントにアクセスるために使用するクライアント。
 #[derive(Clone)]
 pub struct Client {
     mds: MdsClient,
     pub(crate) storage: StorageClient, // TODO: private
 }
 impl Client {
+    /// `Client`インスタンスが紐付いているセグメントの（自身も含めて）全メンバ情報を取得する
+    ///
+    /// StorageClient側の情報を用いる
+    pub fn raft_segment_members(&self) -> Option<&[ClusterMember]> {
+        match self.storage {
+            StorageClient::Metadata => None, // Noneは意味的には嘘だが現在は取りようがない
+            StorageClient::Replicated(_) => {
+                panic!("[frugalos_segment::client::storage::Client::raft_segment_members] unimplemented for Replicated!");
+            }
+            StorageClient::Dispersed(ref client) => Some(client.raft_segment_members()),
+        }
+    }
+
+    /// `Client`インスタンスが紐付いているセグメントの（自身も含めて）全メンバ情報を取得する
+    ///
+    /// MdsClient側の情報を用いる
+    pub fn raft_segment_members2(&self) -> Vec<ClusterMember> {
+        use config;
+
+        let inner = self.mds.inner.lock().unwrap();
+        let config: config::ClusterConfig = inner.config.clone();
+        config.members
+    }
+
     /// 新しい`Client`インスタンスを生成する。
     pub fn new(
         logger: Logger,
