@@ -35,7 +35,8 @@ jobs:
     - FRUGALOS_EXECUTABLE=$TRAVIS_BUILD_DIR/frugalos.by-rust1-33-0.with-jemallocator.linux-amd64
     script:
     - echo "Deploying to GitHub releases ..."
-    - docker build -t $DOCKER_REPO/$DOCKER_IMAGE --build-arg FRUGALOS_VERSION=$TRAVIS_TAG docker/frugalos-release
+    - echo "TAG=${TRAVIS_TAG}"
+    - docker build -t $DOCKER_REPO/$DOCKER_IMAGE --build-arg FRUGALOS_VERSION=0.11.0 docker/frugalos-release
     - docker run --name $FRUGALOS_IMAGE_NAME -d $DOCKER_REPO/$DOCKER_IMAGE /bin/true
     - docker ps -a
     - docker cp "$FRUGALOS_IMAGE_NAME:/bin/frugalos" "$FRUGALOS_EXECUTABLE"
