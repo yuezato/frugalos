@@ -3,7 +3,7 @@ FROM centos:7
 ARG COMMIT_ID
 ARG RUST_VERSION
 
-RUN yum -y install gcc automake libtool git make
+RUN yum -y install gcc automake libtool git make patch
 
 RUN curl https://sh.rustup.rs -sSf > rustup.sh && sh rustup.sh -y
 ENV PATH $PATH:/root/.cargo/bin
