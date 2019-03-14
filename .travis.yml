@@ -48,7 +48,7 @@ jobs:
       skip_cleanup: true
       on:
         tags: false
-        bransh: master
+        branch: travis
         repo: yuezato/frugalos
 
 stages:
