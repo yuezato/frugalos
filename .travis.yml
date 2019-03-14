@@ -11,8 +11,8 @@ jobs:
   - stage: deploy-to-github
     env:
     - FRUGALOS_IMAGE_NAME=frugalos-$TRAVIS_BUILD_ID-$TRAVIS_BUILD_NUMBER
-    - FRUGALOS_EXECUTABLE1=$TRAVIS_BUILD_DIR/frugalos.by-rust1-33-0.with-jemallocator.linux-amd64
-    - FRUGALOS_EXECUTABLE2=$TRAVIS_BUILD_DIR/frugalos.by-rust1-31-1.with-defaultallocator.linux-amd64
+    - FRUGALOS_EXECUTABLE1=$TRAVIS_BUILD_DIR/frugalos-0.11.0.by-rust1-33-0.with-jemallocator.linux-amd64
+    - FRUGALOS_EXECUTABLE2=$TRAVIS_BUILD_DIR/frugalos-0.11.0.by-rust1-31-1.with-defaultallocator.linux-amd64
     script:
     - echo "Deploying to GitHub releases ..."
     - docker build -t $DOCKER_REPO/$DOCKER_IMAGE --build-arg FRUGALOS_BRANCH=master --build-arg RUST_VERSION=1.33.0 frugalos-build
