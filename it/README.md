@@ -18,6 +18,29 @@ it (integration test)
 $ rm -rf /tmp/frugalos_it/
 ```
 
+### frugalosバイナリ
+以下の`イメージのビルド`項ではfrugalosバイナリが必要なので以下の何れかで作成しておく:
+
+#### 普通にビルドする
+```console
+frugalos$ cargo build --release
+frugalos$ ls target/release/frugalos
+target/release/frugalos
+```
+注意: Linux 64bit環境で作成してでない場合、dockerイメージに送り込んでも使えない可能性がある。
+その場合は次の方法でビルドすれば良い。
+
+#### `docker/frugalos-build`を用いる
+`docker/frugalos-build`下の`Dockerfile`を用いてfrugalosバイナリを作る。
+```console
+frugalos/docker/frugalos-build$ docker build -t frugalos-build .
+frugalos/docker/frugalos-build$ tmp_id=$(docker create frugalos-build)
+frugalos/docker/frugalos-build$ docker cp ${tmp_id}:frugalos/target/release/frugalos frugalos
+frugalos/docker/frugalos-build$ docker rm -v $tmp_id # コンテナの削除
+frugalos/docker/frugalos-build$ ls
+Dockerfile		frugalos
+```
+
 イメージのビルド
 ----------------
 
@@ -26,24 +49,13 @@ $ rm -rf /tmp/frugalos_it/
 ```console
 frugalos/docker$ ls
 frugalos		frugalos-build		frugalos-release	hub
-frugalos/docker$ cp ../target/release/frugalos frugalos <- 予めビルド済みのリリースバイナリをコピー
+frugalos/docker$ cp ../target/release/frugalos frugalos
+# `frugalos-build`を使った場合はそこから取ってくる
 frugalos/docker$ cd frugalos
 frugalos/docker/frugalos$ docker build -t frugalos .
 frugalos/docker/frugalos$ docker run -it --rm frugalos frugalos
 Usage: USAGE:
     frugalos [OPTIONS] [SUBCOMMAND]
-```
-
-上ではホストでreleaseビルドしたfrugalosバイナリを用いているが、
-`docker/frugalos-build`下の`Dockerfile`を用いてfrugalosバイナリを作っても良い。
-その場合は例えば以下のようにする:
-```console
-frugalos/docker/frugalos-build$ docker build -t frugalos-build .
-frugalos/docker/frugalos-build$ tmp_id=$(docker create frugalos-build)
-frugalos/docker/frugalos-build$ docker cp ${tmp_id}:frugalos/target/release/frugalos frugalos
-frugalos/docker/frugalos-build$ docker rm -v $tmp_id # コンテナの削除
-frugalos/docker/frugalos-build$ ls
-Dockerfile		frugalos
 ```
 
 クラスタの起動
