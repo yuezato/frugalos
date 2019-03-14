@@ -18,7 +18,7 @@ it (integration test)
 $ rm -rf /tmp/frugalos_it/
 ```
 
-### frugalosバイナリ
+### frugalosバイナリの作成
 以下の`イメージのビルド`項ではfrugalosバイナリが必要なので以下の何れかで作成しておく:
 
 #### 普通にビルドする
