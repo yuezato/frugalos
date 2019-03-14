@@ -15,12 +15,12 @@ jobs:
     - FRUGALOS_EXECUTABLE2=$TRAVIS_BUILD_DIR/frugalos.by-rust1-31-1.with-defaultallocator.linux-amd64
     script:
     - echo "Deploying to GitHub releases ..."
-    - docker build -t $DOCKER_REPO/$DOCKER_IMAGE --build-arg FRUGALOS_BRANCH=master RUST_VERSION=1.33.0 frugalos-build
+    - docker build -t $DOCKER_REPO/$DOCKER_IMAGE --build-arg FRUGALOS_BRANCH=master --build-arg RUST_VERSION=1.33.0 frugalos-build
     - docker run --name $FRUGALOS_IMAGE_NAME -d $DOCKER_REPO/$DOCKER_IMAGE /bin/true
     - docker cp "$FRUGALOS_IMAGE_NAME:frugalos/target/release/frugalos" "$FRUGALOS_EXECUTABLE1"
     - docker rm $FRUGALOS_IMAGE_NAME
     #
-    - docker build -t $DOCKER_REPO/$DOCKER_IMAGE --build-arg FRUGALOS_BRANCH=default_allocator RUST_VERSION=1.31.1 frugalos-build
+    - docker build -t $DOCKER_REPO/$DOCKER_IMAGE --build-arg FRUGALOS_BRANCH=default_allocator --build-arg RUST_VERSION=1.31.1 frugalos-build
     - docker run --name $FRUGALOS_IMAGE_NAME -d $DOCKER_REPO/$DOCKER_IMAGE /bin/true
     - docker cp "$FRUGALOS_IMAGE_NAME:frugalos/target/release/frugalos" "$FRUGALOS_EXECUTABLE2"
     deploy:
