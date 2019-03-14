@@ -13,14 +13,16 @@ jobs:
     - FRUGALOS_IMAGE_NAME=frugalos-$TRAVIS_BUILD_ID-$TRAVIS_BUILD_NUMBER
     - FRUGALOS_EXECUTABLE1=$TRAVIS_BUILD_DIR/frugalos-0.11.0.by-rust1-33-0.with-jemallocator.linux-amd64
     - FRUGALOS_EXECUTABLE2=$TRAVIS_BUILD_DIR/frugalos-0.11.0.by-rust1-31-1.with-defaultallocator.linux-amd64
+    - COMMIT_ID1=263153dd05ff0780782e3a6409d69520b63792c8 # frugalos-0.11.0
+    - COMMIT_ID2=d2535a9b8bd6c04713e03b47d67372a1fdfbac74 # frugalos-0.11.0 but with default allocator
     script:
     - echo "Deploying to GitHub releases ..."
-    - docker build -t $DOCKER_REPO/$DOCKER_IMAGE --build-arg FRUGALOS_BRANCH=master --build-arg RUST_VERSION=1.33.0 frugalos-build
+    - docker build -t $DOCKER_REPO/$DOCKER_IMAGE --build-arg COMMIT_ID=$COMMIT_ID1 --build-arg RUST_VERSION=1.33.0 frugalos-build
     - docker run --name $FRUGALOS_IMAGE_NAME -d $DOCKER_REPO/$DOCKER_IMAGE /bin/true
     - docker cp "$FRUGALOS_IMAGE_NAME:frugalos/target/release/frugalos" "$FRUGALOS_EXECUTABLE1"
     - docker rm $FRUGALOS_IMAGE_NAME
     #
-    - docker build -t $DOCKER_REPO/$DOCKER_IMAGE --build-arg FRUGALOS_BRANCH=default_allocator --build-arg RUST_VERSION=1.31.1 frugalos-build
+    - docker build -t $DOCKER_REPO/$DOCKER_IMAGE --build-arg COMMIT_ID=$COMMIT_ID2 --build-arg RUST_VERSION=1.31.1 frugalos-build
     - docker run --name $FRUGALOS_IMAGE_NAME -d $DOCKER_REPO/$DOCKER_IMAGE /bin/true
     - docker cp "$FRUGALOS_IMAGE_NAME:frugalos/target/release/frugalos" "$FRUGALOS_EXECUTABLE2"
     deploy:

@@ -1,6 +1,6 @@
 FROM centos:7
 
-ARG FRUGALOS_BRANCH
+ARG COMMIT_ID
 ARG RUST_VERSION
 
 RUN yum -y install gcc automake libtool git make
@@ -11,5 +11,5 @@ ENV PATH $PATH:/root/.cargo/bin
 RUN rustup toolchain install $RUST_VERSION
 RUN rustup default $RUST_VERSION
 
-RUN git clone -b $FRUGALOS_BRANCH https://github.com/yuezato/frugalos
-RUN cd frugalos && cargo build --release --all
+RUN git clone https://github.com/yuezato/frugalos
+RUN cd frugalos && git checkout -b COMMIT_ID && cargo build --release --all
