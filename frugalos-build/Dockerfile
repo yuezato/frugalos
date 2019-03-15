@@ -1,5 +1,6 @@
 FROM centos:7
 
+ARG REPOS
 ARG COMMIT_ID
 ARG RUST_VERSION
 
@@ -11,5 +12,5 @@ ENV PATH $PATH:/root/.cargo/bin
 RUN rustup toolchain install $RUST_VERSION
 RUN rustup default $RUST_VERSION
 
-RUN git clone https://github.com/yuezato/frugalos
+RUN git clone https://github.com/REPOS frugalos
 RUN cd frugalos && git checkout -b COMMIT_ID && cargo build --release --all

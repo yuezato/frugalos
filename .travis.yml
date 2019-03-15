@@ -3,8 +3,8 @@ services:
 
 env:
   global:
-  - DOCKER_REPO="frugalos"
   - DOCKER_IMAGE="frugalos"
+  - secure: gFi1JlAu2OHTX8YLjCweGGT0qGjrlKdJBxa8mcCDt2eDgzQLz8bNXC2W0v42uHQRzSdXM3IzkNqbohwZ+6dbB1q0DG0u2t4anZ2+8nQ4Eae1LHMvUeIehlS7A0nwHeNsUuFmvaGhjgYUfFxwp5H0aL6iFI5oTd226JoNyQzkupQp43NEN48qnpfLDQ45/buksbHzUcLfRtmDFZQEJKeTreNlRtD+Gy8E6qzp4yBHAZs7NHyoKqoQDRLCxoUXQJ3dBIFANH28V7/Hll6g5AXBLyNLWnWCf3lgFtGkCUtf9oqDk2wm02Ul2EJi6LlbPmv0LJeYFy+z1K4zZl+K+aTWTTn48xWUeWaToTsFBiHhlC3YoDo3NkH+5BUk2zi8t/77peJuGVRybvyX967jkwDJgU8g+MyVTGFR5rKQbBs7cy8ZzP46+BsmWRTlYchLF/yNsO8jXFbjxMk+HOtFSYhGlRqlqVfPUyirOZVDl4r7Yh0EM3UiIitpEtsQrUPK9sTwYQHPuy+rF5fxAIkOFG7FshNnRKErT7S5QosVgxtdXTMKE2EDq7v4uY6o2pIujma9d2Eia8MJ2fXyeIUvUAOTm0E243VcH3QZrH5xPPEeSak/G1hVqOfdB6c7svvIPDhq0NM2cdV83mx1Hnmlsz2M7Jgf2t2ZDigfwDKGxH8NyX8=
 
 jobs:
   include:
@@ -13,18 +13,27 @@ jobs:
     - FRUGALOS_IMAGE_NAME=frugalos-$TRAVIS_BUILD_ID-$TRAVIS_BUILD_NUMBER
     - FRUGALOS_EXECUTABLE1=$TRAVIS_BUILD_DIR/frugalos-0.11.0.by-rust1-33-0.with-jemallocator.linux-amd64
     - FRUGALOS_EXECUTABLE2=$TRAVIS_BUILD_DIR/frugalos-0.11.0.by-rust1-31-1.with-defaultallocator.linux-amd64
-    - COMMIT_ID1=263153dd05ff0780782e3a6409d69520b63792c8 # frugalos-0.11.0
-    - COMMIT_ID2=d2535a9b8bd6c04713e03b47d67372a1fdfbac74 # frugalos-0.11.0 but with default allocator
+    - REPOS1=frugalos/frugalos
+    - COMMIT_ID1=263153d # frugalos-0.11.0 https://github.com/frugalos/frugalos/commit/263153d
+    #
+    - REPOS2=frugalos/frugalos
+    - COMMIT_ID2=74f9ee0 # frugalos-0.11.0 but with default allocator https://github.com/frugalos/frugalos/commit/74f9ee0
     script:
     - echo "Deploying to GitHub releases ..."
-    - docker build -t $DOCKER_REPO/$DOCKER_IMAGE --build-arg COMMIT_ID=$COMMIT_ID1 --build-arg RUST_VERSION=1.33.0 frugalos-build
-    - docker run --name $FRUGALOS_IMAGE_NAME -d $DOCKER_REPO/$DOCKER_IMAGE /bin/true
+    - docker build -t $DOCKER_IMAGE --build-arg REPOS=$REPOS1 --build-arg COMMIT_ID=$COMMIT_ID1 --build-arg RUST_VERSION=1.33.0 frugalos-build
+    - docker run --name $FRUGALOS_IMAGE_NAME -d $DOCKER_IMAGE /bin/true
     - docker cp "$FRUGALOS_IMAGE_NAME:frugalos/target/release/frugalos" "$FRUGALOS_EXECUTABLE1"
     - docker rm $FRUGALOS_IMAGE_NAME
     #
-    - docker build -t $DOCKER_REPO/$DOCKER_IMAGE --build-arg COMMIT_ID=$COMMIT_ID2 --build-arg RUST_VERSION=1.31.1 frugalos-build
-    - docker run --name $FRUGALOS_IMAGE_NAME -d $DOCKER_REPO/$DOCKER_IMAGE /bin/true
+    - docker build -t $DOCKER_IMAGE --build-arg REPOS=$REPOS2 --build-arg COMMIT_ID=$COMMIT_ID2 --build-arg RUST_VERSION=1.31.1 frugalos-build
+    - docker run --name $FRUGALOS_IMAGE_NAME -d $DOCKER_IMAGE /bin/true
     - docker cp "$FRUGALOS_IMAGE_NAME:frugalos/target/release/frugalos" "$FRUGALOS_EXECUTABLE2"
+    before_deploy:
+    - git config --global user.name "Travis CI"
+    - git config --global user.email "travis@travis-ci.org"
+    - $TAG=date +"%Y_%m_%d_%H_%M"
+    - git tag $TAG -a -m "Commit from Travis CI for build $TRAVIS_BUILD_NUMBER"
+    - git push --quiet https://$GH_TOKEN@github.com/yuezato/frugalos.git --tags
     deploy:
       provider: releases
       api_key:
