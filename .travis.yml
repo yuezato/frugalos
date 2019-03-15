@@ -28,12 +28,6 @@ jobs:
     - docker build -t $DOCKER_IMAGE --build-arg REPOS=$REPOS2 --build-arg COMMIT_ID=$COMMIT_ID2 --build-arg RUST_VERSION=1.31.1 frugalos-build
     - docker run --name $FRUGALOS_IMAGE_NAME -d $DOCKER_IMAGE /bin/true
     - docker cp "$FRUGALOS_IMAGE_NAME:frugalos/target/release/frugalos" "$FRUGALOS_EXECUTABLE2"
-    before_deploy:
-    - git config --global user.name "Travis CI"
-    - git config --global user.email "travis@travis-ci.org"
-    - $TAG=date +"%Y_%m_%d_%H_%M"
-    - git tag $TAG -a -m "Commit from Travis CI for build $TRAVIS_BUILD_NUMBER"
-    - git push --quiet https://$GH_TOKEN@github.com/yuezato/frugalos.git --tags
     deploy:
       provider: releases
       api_key:
