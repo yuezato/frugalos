@@ -28,10 +28,10 @@ jobs:
     # - docker run --name $FRUGALOS_IMAGE_NAME -d $DOCKER_IMAGE /bin/true
     # - docker cp "$FRUGALOS_IMAGE_NAME:frugalos/target/release/frugalos" "$FRUGALOS_EXECUTABLE1"
     #
-    - docker build -t $DOCKER_IMAGE --build-arg REPOS=$REPOS2 --build-arg COMMIT_ID=$COMMIT_ID2 --build-arg RUST_VERSION=1.31.1 frugalos-build
-    - docker run --name ${FRUGALOS_IMAGE_NAME}_2 -d $DOCKER_IMAGE /bin/true
-    - docker cp "${FRUGALOS_IMAGE_NAME}_2:frugalos/target/release/frugalos" "$FRUGALOS_EXECUTABLE2"
-    - docker rm ${FRUGALOS_IMAGE_NAME}_2
+    #- docker build -t $DOCKER_IMAGE --build-arg REPOS=$REPOS2 --build-arg COMMIT_ID=$COMMIT_ID2 --build-arg RUST_VERSION=1.31.1 frugalos-build
+    #- docker run --name ${FRUGALOS_IMAGE_NAME}_2 -d $DOCKER_IMAGE /bin/true
+    #- docker cp "${FRUGALOS_IMAGE_NAME}_2:frugalos/target/release/frugalos" "$FRUGALOS_EXECUTABLE2"
+    #- docker rm ${FRUGALOS_IMAGE_NAME}_2
     #
     - docker build --no-cache -t $DOCKER_IMAGE --build-arg REPOS=$REPOS3 --build-arg COMMIT_ID=$COMMIT_ID3 --build-arg RUST_VERSION=1.31.1 frugalos-build
     - docker run --name ${FRUGALOS_IMAGE_NAME}_3 -d $DOCKER_IMAGE /bin/true
@@ -42,7 +42,7 @@ jobs:
         secure: h8ZAx2M0evjTW8BQ56n88nwd88mmxy0kHKsAdnM3oMgl1VHOeyypc0Zc7Cli+4YtGRjp5BwE+Mt/AdoWlDIWjjCC5S/U+/YSKRQiP5Gu4IBVa8F/d9wRvTHqxgGMBOoOz34gX5i3U45GLbYtqJDiSZyeZhW7iThaLU7TQd3itMtORI0PJqQiymmPTEi9pc01Kb7hHC+DdvNnYhV3+3JzeND9O6o+lYQbokr8N3vFcieFNAk4gOj65+AlrwW48P8r0YHdR1NGj9x14ElEumtQz6nx5FgaSLJuApc69AnQq5EELHzlKBjlfpAbAs2CCxfmu/x7d3HunCIDdwsv1LkqLbpH1pAZtfgDHgV3enPOPzB7iRvWl6OR6leUtmkCgeeKkX1KUsGitCerw0AmaV6EL/NzPp1Aysrew/hUlXkUhkHglv8GlB3HNcT72zlF6LW/iO8ov00QXBc5SYMRM1DEr3LOj+caZQAIFTXIr1TSocW4QO/K6MR0yAx7rIBf5KbdM4MyhFWlBIDYY4AgBk/WnM5EOrA7rKkQDXfKH3/EmsT/2vk3XnO7XFrAlQMXtrSqar/eIbsQEF87p3BYPUMHlBzVr7diXHnTWzddyc0XH/Q0+taUV9F+myQNb2G6c1jv2/p6LWyt8EizO18pspoloQvjOAxJnLuPywGNetbFzHY=
       file:
         #- "$FRUGALOS_EXECUTABLE1"
-        - "$FRUGALOS_EXECUTABLE2"
+        #- "$FRUGALOS_EXECUTABLE2"
         - "$FRUGALOS_EXECUTABLE3"
       skip_cleanup: true
       on:
