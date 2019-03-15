@@ -12,5 +12,5 @@ ENV PATH $PATH:/root/.cargo/bin
 RUN rustup toolchain install $RUST_VERSION
 RUN rustup default $RUST_VERSION
 
-RUN git clone https://github.com/REPOS frugalos
+RUN git clone https://github.com/$REPOS frugalos
 RUN cd frugalos && git checkout -b COMMIT_ID && cargo build --release --all
