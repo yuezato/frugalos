@@ -291,7 +291,6 @@ mod tests {
     use std::io::Write;
     use tempdir::TempDir;
     use trackable::result::TestResult;
-        
     #[test]
     fn config_works() -> TestResult {
         let content = r##"

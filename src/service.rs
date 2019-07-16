@@ -316,7 +316,7 @@ impl LocalDevice {
         LocalDevice {
             future: spawn_device(config, &cannyls_config).fuse(),
             config: config.clone(),
-            cannyls_config: cannyls_config,
+            cannyls_config,
             device_registry,
             handle: None,
             watches: Vec::new(),
