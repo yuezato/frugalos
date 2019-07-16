@@ -105,6 +105,9 @@ pub struct FrugalosConfig {
     /// frugalos_segment 向けの設定。
     #[serde(default)]
     pub segment: frugalos_segment::FrugalosSegmentConfig,
+    /// cannylsのデバイスを作成する際の設定。
+    #[serde(default)]
+    pub cannyls_build: CannylsBuildConfig,
 }
 
 impl FrugalosConfig {
@@ -138,6 +141,7 @@ impl Default for FrugalosConfig {
             rpc_client: Default::default(),
             mds: Default::default(),
             segment: Default::default(),
+            cannyls_build: Default::default(),
         }
     }
 }
@@ -170,6 +174,26 @@ impl Default for FrugalosDaemonConfig {
             stop_waiting_time: default_stop_waiting_time(),
         }
     }
+}
+
+/// Cannylsインスタンスを生成する際の設定。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CannylsBuildConfig {
+    /// 次のPR34をonにするかどうか:  
+    /// https://github.com/frugalos/cannyls/pull/34
+    #[serde(default = "default_enable_safe_release_mode")]
+    pub enable_safe_release_mode: bool,
+}
+impl Default for CannylsBuildConfig {
+    fn default() -> Self {
+        Self {
+            // デフォルトではPR34の機能は用いない
+            enable_safe_release_mode: false,
+        }
+    }
+}
+fn default_enable_safe_release_mode() -> bool {
+    false
 }
 
 /// HTTP server 向けの設定。
@@ -267,7 +291,7 @@ mod tests {
     use std::io::Write;
     use tempdir::TempDir;
     use trackable::result::TestResult;
-
+        
     #[test]
     fn config_works() -> TestResult {
         let content = r##"
@@ -442,6 +466,24 @@ frugalos:
                 "frugalos.this_is_invalid_field"
             ]
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn by_default_safe_relesae_mode_is_off() -> TestResult {
+        let content = r##"---
+        frugalos:
+          segment: {}
+        "##;
+        let dir = track_any_err!(TempDir::new("frugalos_test"))?;
+        let filepath = dir.path().join("frugalos_default_safe_release_mode.yml");
+        let mut file = track_any_err!(File::create(filepath.clone()))?;
+
+        track_any_err!(file.write(content.as_bytes()))?;
+
+        let (actual, _) = track!(FrugalosConfig::from_yaml(filepath))?;
+        assert_eq!(actual.cannyls_build.enable_safe_release_mode, false);
 
         Ok(())
     }

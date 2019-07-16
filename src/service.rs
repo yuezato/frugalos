@@ -31,7 +31,7 @@ use trackable::error::ErrorKindExt;
 
 use bucket::Bucket;
 use client::FrugalosClient;
-use {Error, ErrorKind, Result};
+use {CannylsBuildConfig, Error, ErrorKind, Result};
 
 pub struct PhysicalDevice {
     id: DeviceId,
@@ -59,6 +59,8 @@ pub struct Service<S> {
     servers: HashMap<ServerId, Server>,
 
     segment_config: FrugalosSegmentConfig,
+
+    cannyls_build_config: CannylsBuildConfig,
 }
 impl<S> Service<S>
 where
@@ -75,6 +77,7 @@ where
         rpc_service: RpcServiceHandle,
         mds_config: frugalos_mds::FrugalosMdsConfig,
         segment_config: FrugalosSegmentConfig,
+        cannyls_build_config: CannylsBuildConfig,
         tracer: ThreadLocalTracer,
     ) -> Result<Self> {
         let frugalos_segment_service = track!(SegmentService::new(
@@ -100,6 +103,7 @@ where
             bucket_no_to_id: HashMap::new(),
             servers: HashMap::new(),
             segment_config,
+            cannyls_build_config,
         })
     }
     pub fn client(&self) -> FrugalosClient {
@@ -252,6 +256,7 @@ where
             self.logger.clone(),
             &device_config,
             self.frugalos_segment_service.device_registry().handle(),
+            self.cannyls_build_config.clone(),
         );
         self.local_devices.insert(device_config.seqno(), device);
         Ok(())
@@ -289,21 +294,33 @@ where
 struct LocalDevice {
     logger: Logger,
     config: DeviceConfig,
+    cannyls_config: CannylsBuildConfig,
     device_registry: DeviceRegistryHandle,
     handle: Option<DeviceHandle>,
     future: Fuse<fibers_tasque::AsyncCall<Result<Device>>>,
     watches: Vec<oneshot::Monitored<DeviceHandle, Error>>,
 }
 impl LocalDevice {
-    fn new(logger: Logger, config: &DeviceConfig, device_registry: DeviceRegistryHandle) -> Self {
-        info!(logger, "Starts spawning new device: {:?}", config);
-        LocalDevice {
+    fn new(
+        logger: Logger,
+        config: &DeviceConfig,
+        device_registry: DeviceRegistryHandle,
+        cannyls_config: CannylsBuildConfig,
+    ) -> Self {
+        info!(
             logger,
+            "Starts spawning [new device = {:?}] with [cannyls config {:?}]",
+            config,
+            cannyls_config
+        );
+        LocalDevice {
+            future: spawn_device(config, &cannyls_config).fuse(),
             config: config.clone(),
+            cannyls_config: cannyls_config,
             device_registry,
             handle: None,
-            future: spawn_device(config).fuse(),
             watches: Vec::new(),
+            logger,
         }
     }
     fn id(&self) -> DeviceId {
@@ -324,7 +341,12 @@ impl Future for LocalDevice {
     type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if let Async::Ready(device) = track!(self.future.poll().map_err(Error::from))? {
-            info!(self.logger, "New device spawned: {:?}", self.config);
+            info!(
+                self.logger,
+                "New device spawned: {:?} with the cannyls config {:?}",
+                self.config,
+                self.cannyls_config
+            );
             let device = track!(device.map_err(Error::from))?;
             let handle = device.handle();
             self.handle = Some(device.handle());
@@ -353,7 +375,10 @@ impl Future for WatchDeviceHandle {
     }
 }
 
-fn spawn_device(device: &DeviceConfig) -> fibers_tasque::AsyncCall<Result<Device>> {
+fn spawn_device(
+    device: &DeviceConfig,
+    cannyls_config: &CannylsBuildConfig,
+) -> fibers_tasque::AsyncCall<Result<Device>> {
     use libfrugalos::entity::device::Device;
 
     match *device {
@@ -361,7 +386,7 @@ fn spawn_device(device: &DeviceConfig) -> fibers_tasque::AsyncCall<Result<Device
             fibers_tasque::DefaultIoTaskQueue.async_call(|| track_panic!(ErrorKind::Other))
         }
         Device::Memory(ref d) => spawn_memory_device(d),
-        Device::File(ref d) => spawn_file_device(d),
+        Device::File(ref d) => spawn_file_device(d, cannyls_config),
     }
 }
 
@@ -381,23 +406,32 @@ fn spawn_memory_device(device: &MemoryDeviceConfig) -> fibers_tasque::AsyncCall<
     })
 }
 
-fn spawn_file_device(device: &FileDeviceConfig) -> fibers_tasque::AsyncCall<Result<Device>> {
+fn spawn_file_device(
+    device: &FileDeviceConfig,
+    cannyls_config: &CannylsBuildConfig,
+) -> fibers_tasque::AsyncCall<Result<Device>> {
     use cannyls::nvm::FileNvm;
     let metrics = MetricBuilder::new()
         .label("device", device.id.as_ref())
         .clone();
     let filepath = device.filepath.clone();
     let capacity = device.capacity;
-    let mut storage = cannyls::storage::StorageBuilder::new();
-    storage.metrics(metrics.clone());
+    let enable_safe_release_mode = cannyls_config.enable_safe_release_mode;
+    let mut builder = cannyls::storage::StorageBuilder::new();
+    if enable_safe_release_mode {
+        builder.enable_safe_release_mode();
+    }
+    builder.metrics(metrics.clone());
+
     fibers_tasque::DefaultIoTaskQueue.async_call(move || {
         let (nvm, created) =
             track!(FileNvm::create_if_absent(filepath, capacity).map_err(Error::from))?;
         let storage = if created {
-            track!(storage.create(nvm).map_err(Error::from))?
+            track!(builder.create(nvm).map_err(Error::from))?
         } else {
-            track!(storage.open(nvm).map_err(Error::from))?
+            track!(builder.open(nvm).map_err(Error::from))?
         };
+        assert_eq!(storage.is_in_safe_release_mode(), enable_safe_release_mode);
         let device = cannyls::device::DeviceBuilder::new()
             .metrics(metrics)
             .spawn(|| Ok(storage)); // TODO: taskqueは止める

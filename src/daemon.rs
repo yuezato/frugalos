@@ -99,6 +99,7 @@ impl FrugalosDaemon {
             rpc_service.handle(),
             config.mds,
             config.segment,
+            config.cannyls_build,
             tracer.clone(),
         ))?;
 

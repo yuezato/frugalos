@@ -16,7 +16,7 @@ travis-ci = {repository = "frugalos/frugalos"}
 [dependencies]
 atomic_immut = "0.1"
 bytecodec = { version = "0.4", features = ["json_codec"] }
-cannyls = "0.9"
+cannyls = { git = "https://github.com/yuezato/cannyls", branch = "new_patch_for_issue28" }
 cannyls_rpc = "0.1"
 clap = "2"
 fibers = "0.1"
@@ -58,3 +58,6 @@ trackable = "^0.2.21"
 
 [workspace]
 members = ["frugalos_core", "frugalos_config", "frugalos_mds", "frugalos_raft", "frugalos_segment"]
+
+[patch.crates-io]
+cannyls = { git = "https://github.com/yuezato/cannyls", branch = "new_patch_for_issue28" }
